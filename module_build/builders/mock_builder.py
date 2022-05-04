@@ -913,13 +913,14 @@ class MockBuildroot:
 
         self.finished = False
         self.component = component
-        self.mock_cfg_str = mock_cfg_str
+        self.mock_config = mock_config
         self.batch_dir_path = batch_dir_path
         self.batch_num = batch_num
         self.modularity_label = modularity_label
         self.rpm_suffix = rpm_suffix
         self.result_dir_path = self._create_buildroot_result_dir()
-        self.mock_cfg_path = self._create_mock_cfg_file()
+        self.mock_cfg_path = self.mock_config.write_config(
+            f"{self.result_dir_path}/{self.component['name']}")
         self.batch_repo = batch_repo
         self.external_repos = external_repos
         self.rootdir = rootdir
