@@ -1,6 +1,8 @@
 *.pyc
 .vscode
 .pytest_cache
+.tox
+.venv
 htmlcov/
 module_build.egg*/
 .coverage
