@@ -12,11 +12,17 @@ from module_build.metadata import (generate_and_populate_output_mmd, mmd_to_str,
 from module_build.modulemd import Modulemd
 
 
+class MockBuilderState:
+    INIT = 1
+    BUILDING = 2
+    FAILED = 3
+    FINISHED = 4
+
+
 class MockBuilder:
     # TODO enable building only specific contexts
     # TODO enable multiprocess queues for component building.
     def __init__(self, mock_cfg_path, workdir, external_repos, rootdir):
-        self.states = ["init", "building", "failed", "finished"]
         self.workdir = workdir
         self.mock_cfg_path = mock_cfg_path
         self.external_repos = external_repos
@@ -45,10 +51,10 @@ class MockBuilder:
             if context_to_build and context_to_build != context_name:
                 continue
 
-            if build_context["status"]["state"] == self.states[3] and resume:
+            if build_context["status"]["state"] == MockBuilderState.FINISHED and resume:
                 msg = "The build context '{context}' state is set to '{state}'. Skipping...".format(
                     context=context_name,
-                    state=self.states[3],
+                    state=MockBuilderState.FINISHED,
                 )
                 logger.info(msg)
                 continue
@@ -62,7 +68,7 @@ class MockBuilder:
             if "dir" not in build_context:
                 build_context["dir"] = self.create_build_context_dir(context_name)
 
-            build_context["status"]["state"] = self.states[1]
+            build_context["status"]["state"] = MockBuilderState.BUILDING
             batch_repo_path = os.path.abspath(build_context["dir"] + "/build_batches")
             batch_repo = "file://{repo}".format(repo=batch_repo_path)
 
@@ -78,11 +84,11 @@ class MockBuilder:
             for position in sorted_batches:
                 batch = build_context["build_batches"][position]
 
-                if batch["batch_state"] == self.states[3] and resume:
+                if batch["batch_state"] == MockBuilderState.FINISHED and resume:
                     msg = ("The batch number '{num}' from context '{context}' state is set "
                            "to '{state}'. Skipping...").format(
                         context=context_name,
-                        state=self.states[3],
+                        state=MockBuilderState.FINISHED,
                         num=position,
                     )
                     logger.info(msg)
@@ -95,7 +101,7 @@ class MockBuilder:
                     batch["dir"] = self.create_build_batch_dir(context_name, position)
 
                 build_context["status"]["current_build_batch"] = position
-                build_context["build_batches"][position]["batch_state"] = self.states[1]
+                build_context["build_batches"][position]["batch_state"] = MockBuilderState.BUILDING
 
                 for index, component in enumerate(batch["components"]):
 
@@ -120,7 +126,7 @@ class MockBuilder:
                     logger.info(msg)
 
                     build_context["build_batches"][position]["curr_comp"] = index
-                    build_context["build_batches"][position]["curr_comp_state"] = self.states[1]
+                    build_context["build_batches"][position]["curr_comp_state"] = MockBuilderState.BUILDING
 
                     msg = "Generating mock config for component '{name}'...".format(
                         name=component["name"]
@@ -144,7 +150,7 @@ class MockBuilder:
 
                     batch["finished_builds"] += buildroot.get_artifacts()
 
-                    build_context["build_batches"][position]["curr_comp_state"] = self.states[3]
+                    build_context["build_batches"][position]["curr_comp_state"] = MockBuilderState.FINISHED
                     build_context["status"]["num_finished_comps"] += 1
 
                 # when the batch has finished building all its components, we will turn the batch
@@ -152,9 +158,9 @@ class MockBuilder:
                 # and its built rpms can be used in the /next batch as modular dependencies
                 self.finalize_batch(position, context_name)
 
-                build_context["build_batches"][position]["batch_state"] = self.states[3]
+                build_context["build_batches"][position]["batch_state"] = MockBuilderState.FINISHED
 
-            build_context["status"]["state"] = self.states[3]
+            build_context["status"]["state"] = MockBuilderState.FINISHED
             self.finalize_build_context(context_name)
 
     def final_report(self):
@@ -177,8 +183,8 @@ class MockBuilder:
                 build_batches[position] = {
                     "components": [],
                     "curr_comp": 0,
-                    "curr_comp_state": self.states[0],
-                    "batch_state": self.states[0],
+                    "curr_comp_state": MockBuilderState.INIT,
+                    "batch_state": MockBuilderState.INIT,
                     "finished_builds": [],
                     "modular_batch_deps": [],
                 }
@@ -300,7 +306,7 @@ class MockBuilder:
                 "buildroot_profiles": [],
                 "srpm_buildroot_profiles": [],
                 "status": {
-                    "state": self.states[0],
+                    "state": MockBuilderState.INIT,
                     "current_build_batch": 0,
                     "num_components": len(module_stream.components),
                     "num_finished_comps": 0,
@@ -660,7 +666,7 @@ class MockBuilder:
                        "metadata...").format(context=context_name)
                 logger.info(msg)
 
-                context["status"]["state"] = self.states[3]
+                context["status"]["state"] = MockBuilderState.FINISHED
 
                 for position in sorted(build_batches):
                     actual_batch_name = "batch_{position}".format(position=position)
@@ -693,8 +699,8 @@ class MockBuilder:
                                 build_batches[position]["finished_builds"].append(file_path)
 
                         last_comp = len(build_batches[position]["components"]) - 1
-                        build_batches[position]["batch_state"] = self.states[3]
-                        build_batches[position]["curr_comp_state"] = self.states[3]
+                        build_batches[position]["batch_state"] = MockBuilderState.FINISHED
+                        build_batches[position]["curr_comp_state"] = MockBuilderState.FINISHED
                         build_batches[position]["curr_comp"] = last_comp
                         msg = "Batch number '{num}' of context '{context}' is finished.".format(
                             num=position,
@@ -716,7 +722,7 @@ class MockBuilder:
 
                 # we set the context resume point and the state of the context to "building"
                 resume_point["context"] = context_name
-                context["status"]["state"] = self.states[1]
+                context["status"]["state"] = MockBuilderState.BUILDING
 
                 msg = "Finding existing batch directories of context '{context}'...".format(
                     context=context_name)
@@ -747,8 +753,8 @@ class MockBuilder:
                                     build_batches[position]["finished_builds"].append(file_path)
 
                             last_comp = len(build_batches[position]["components"]) - 1
-                            build_batches[position]["batch_state"] = self.states[3]
-                            build_batches[position]["curr_comp_state"] = self.states[3]
+                            build_batches[position]["batch_state"] = MockBuilderState.FINISHED
+                            build_batches[position]["curr_comp_state"] = MockBuilderState.FINISHED
                             build_batches[position]["curr_comp"] = last_comp
                             msg = "Batch number '{num}' of context '{context}' is finished.".format(
                                 num=position,
@@ -766,7 +772,7 @@ class MockBuilder:
                             # we set the batch resume point and the batch state to 'building'
                             resume_point["batch"] = position
                             context["status"]["current_build_batch"] = position
-                            build_batches[position]["batch_state"] = self.states[1]
+                            build_batches[position]["batch_state"] = MockBuilderState.BUILDING
 
                             for index, comp in enumerate(build_batches[position]["components"]):
                                 comp_dir = batch_dir + "/" + comp["name"]
@@ -803,8 +809,8 @@ class MockBuilder:
                                                "NOT finished. Setting component '{name}' as the "
                                                "resume point.")
                                         build_batch = build_batches[position]
-                                        build_batch["batch_state"] = self.states[1]
-                                        build_batch["curr_comp_state"] = self.states[0]
+                                        build_batch["batch_state"] = MockBuilderState.BUILDING
+                                        build_batch["curr_comp_state"] = MockBuilderState.INIT
                                         build_batch["curr_comp"] = index
                                         resume_point["component"] = comp["name"]
                                         shutil.rmtree(comp_dir)
@@ -825,8 +831,8 @@ class MockBuilder:
                                         logger.info(msg)
 
                                         build_batch = build_batches[position]
-                                        build_batch["batch_state"] = self.states[1]
-                                        build_batch["curr_comp_state"] = self.states[0]
+                                        build_batch["batch_state"] = MockBuilderState.BUILDING
+                                        build_batch["curr_comp_state"] = MockBuilderState.INIT
                                         build_batch["curr_comp"] = index
                                         resume_point["component"] = comp["name"]
                                         break
@@ -845,8 +851,8 @@ class MockBuilder:
 
                                     build_batch = build_batches[position]
                                     last_comp = len(build_batch["components"]) - 1
-                                    build_batch["batch_state"] = self.states[3]
-                                    build_batch["curr_comp_state"] = self.states[3]
+                                    build_batch["batch_state"] = MockBuilderState.FINISHED
+                                    build_batch["curr_comp_state"] = MockBuilderState.FINISHED
                                     build_batch["curr_comp"] = last_comp
                                     self.finalize_batch(position, context_name)
                                     msg = ("Batch number '{num}' of context '{context}'"
