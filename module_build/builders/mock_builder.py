@@ -132,16 +132,17 @@ class MockBuilder:
                         name=component["name"]
                     )
                     logger.info(msg)
-                    # we prepare a mock config for the mock buildroot.
-                    mock_cfg_str = self.generate_and_process_mock_cfg(component, context_name,
-                                                                      position)
+
+                    # Create mock config for the mock buildroot.
+                    mock_config = self.generate_and_process_mock_cfg(component, context_name,
+                                                                     position)
 
                     msg = "Initializing mock buildroot for component '{name}'...".format(
                         name=component["name"]
                     )
                     logger.info(msg)
 
-                    buildroot = MockBuildroot(component, mock_cfg_str, batch["dir"], position,
+                    buildroot = MockBuildroot(component, mock_config, batch["dir"], position,
                                               build_context["modularity_label"],
                                               build_context["rpm_suffix"],
                                               batch_repo, self.external_repos, self.rootdir)
@@ -369,16 +370,10 @@ class MockBuilder:
         return batches_dir_path
 
     def generate_and_process_mock_cfg(self, component, context_name, batch_num):
-        # TODO consider to remove from this class and make a standalone function
-        mock_cfg_str = ""
-        mock_cfg_str += "config_opts['scm'] = True\n"
-        mock_cfg_str += "config_opts['scm_opts']['method'] = 'distgit'\n"
-        mock_cfg_str += "config_opts['scm_opts']['package'] = '{component_name}'\n".format(
-            component_name=component["name"]
-        )
-        mock_cfg_str += "config_opts['scm_opts']['branch'] = '{component_ref}'\n".format(
-            component_ref=component["ref"]
-        )
+        mock_config = MockConfig(self.mock_cfg_path)
+
+        # Enable MBS
+        mock_config.enable_mbs("distgit", component["name"], component["ref"])
 
         # we need to tell mock which modular build dependencies need to be enabled
         context = self.build_contexts[context_name]
@@ -390,29 +385,16 @@ class MockBuilder:
         # grouped into batch_0 by default and the `modular_batch_deps` will be an empty list.
         modular_batch_deps = context["build_batches"][batch_num]["modular_batch_deps"]
         modules_to_enable = modular_deps + modular_batch_deps
-        mock_cfg_str += "# we enable necesary build module dependencies.\n"
-        mock_cfg_str += "config_opts['module_enable'] = {modules}\n".format(
-            modules=modules_to_enable)
 
         buildroot_profiles = context["buildroot_profiles"]
         srpm_buildroot_profiles = context["srpm_buildroot_profiles"]
         profiles_to_install = buildroot_profiles + srpm_buildroot_profiles
 
-        mock_cfg_str += "config_opts['module_install'] = {profiles}\n".format(
-            profiles=profiles_to_install)
+        mock_config.enable_modules(modules_to_enable)
+        mock_config.enable_modules(profiles_to_install, True)
+        mock_config.add_macros(context["rpm_macros"])
 
-        mock_cfg_str += "# we set the necessary macros provided by the `build_opts` option.\n"
-        for m in context["rpm_macros"]:
-            if m:
-                macro, value = m.split(" ")
-                mock_cfg_str += "config_opts['macros']['{macro}'] = {value}\n".format(
-                    macro=macro,
-                    value=value,
-                )
-
-        mock_cfg_str += "include('{mock_cfg_path}')\n".format(mock_cfg_path=self.mock_cfg_path)
-
-        return mock_cfg_str
+        return mock_config
 
     def finalize_batch(self, position, context_name):
         msg = "Batch number {num} finished building all its components.".format(num=position)
@@ -926,7 +908,7 @@ class MockBuilder:
 
 
 class MockBuildroot:
-    def __init__(self, component, mock_cfg_str, batch_dir_path, batch_num, modularity_label,
+    def __init__(self, component, mock_config, batch_dir_path, batch_num, modularity_label,
                  rpm_suffix, batch_repo, external_repos, rootdir):
 
         self.finished = False
@@ -1023,20 +1005,3 @@ class MockBuildroot:
         logger.info(msg)
 
         return result_dir_path
-
-    def _create_mock_cfg_file(self):
-        mock_cfg_file_path = "{result_dir_path}/{component_name}_mock.cfg".format(
-            result_dir_path=self.result_dir_path,
-            component_name=self.component["name"]
-        )
-
-        with open(mock_cfg_file_path, "w") as f:
-            f.write(self.mock_cfg_str)
-
-        msg = "Mock config for '{name}' component written to: {path}".format(
-            name=self.component["name"],
-            path=mock_cfg_file_path,
-        )
-        logger.info(msg)
-
-        return mock_cfg_file_path
