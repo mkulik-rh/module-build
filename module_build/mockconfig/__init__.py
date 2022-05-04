@@ -1,6 +1,6 @@
 from module_build.log import logger
 
-from constants import KEY_MODULE_ENABLE, KEY_MODULE_INSTALL
+from .constants import KEY_MODULE_ENABLE, KEY_MODULE_INSTALL
 
 
 class MockConfig():
@@ -14,7 +14,7 @@ class MockConfig():
         if key in self.content:
             self.content[key].append(modules)
         else:
-            self.content[key] = {modules}
+            self.content[key] = modules
 
     def enable_mbs(self, method, package, branch):
         self.content = {
@@ -40,7 +40,7 @@ class MockConfig():
 
         with open(path, "w") as f:
             for key, value in self.content.items():
-                f.write(f"{key} = {value}")
+                f.write(f"{key} = {value}\n")
 
             f.write(f"include('{self.base_mock_cfg_path}')")
 
