@@ -77,9 +77,9 @@ def get_arg_parser():
     parser.add_argument("-x", "--module-context", type=str,
                         help=("When set it will only build the selected context from the modules"
                               " stream."))
-    # TODO verbose is not implemented
-    # parser.add_argument("-v", "--verbose", action="store_true",
-    #                     help="Will display all output to stdout.")
+
+    parser.add_argument("-v", "--verbose", action="store_true",
+                        help="Will display all output to stdout.")
 
     parser.add_argument("-d", "--debug", action="store_true",
                         help="When the module build fails it will start the python `pdb` debugger.")
@@ -104,7 +104,7 @@ def main():
 
     # TODO this needs to be updated when scm checkout will be added
     yaml_filename = args.modulemd.split("/")[-1].rsplit(".", 1)[0]
-    init_logging(args.workdir, yaml_filename, logger)
+    init_logging(args.workdir, yaml_filename, logger, args.verbose)
 
 # PHASE1: Load metadata and configuration provided by the user
     logger.info("Processing provided module stream metadata...")
