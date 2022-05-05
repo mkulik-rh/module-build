@@ -57,6 +57,11 @@ def get_arg_parser():
                         default=".", type=str, required=True,
                         action=FullPathAction)
 
+    parser.add_argument("-m", "--srpm-dir", type=str,
+                        help=("Path to the SRPMs for module build. When set, all module components"
+                              " will be build from SRPMs."),
+                        action=FullPathAction)
+
     parser.add_argument("-r", "--resume", action="store_true",
                         help="If set it will try to continue the build where it failed last time.")
 
@@ -148,8 +153,9 @@ def main():
 
     logger.info(log_msg)
 
-    # TODO add exceptions
-    mock_builder = MockBuilder(args.mock_cfg, args.workdir, args.add_repo, args.rootdir)
+    # TODO: add exceptions
+    mock_builder = MockBuilder(args.mock_cfg, args.workdir,
+                               args.add_repo, args.rootdir, args.srpm_dir)
 
 # PHASE3: try to build the module stream
     try:
