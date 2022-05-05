@@ -41,6 +41,10 @@ class MockBuilder:
                 raise Exception("The '{context}' does not exists in this module stream!".format(
                     context=context_to_build))
 
+        # Map components names to srpm names
+        if self.srpm_dir:
+            self.parse_srpm_files()
+
         if resume:
             msg = "------------- Resuming Module Build --------------"
             logger.info(msg)
