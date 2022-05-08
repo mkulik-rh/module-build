@@ -1,32 +1,51 @@
 from module_build.modulemd import Modulemd
 
 
+class ModuleStreamNameError(Exception):
+    def __init__(self):
+        self.message = (
+            "The module stream metadata file does not provide a name for the "
+            "module! Please set the module name in the metadata file or provide "
+            "it throught the `--module-name` cli parameter."
+        )
+        super().__init__(self.message)
+
+    def __str__(self):
+        return f"{self.message}"
+
+
+class ModuleStreamStreamError(Exception):
+    def __init__(self):
+        self.message = (
+            "The module stream metadata file does not provide a name for the "
+            "stream! Please set the stream name in the metadata file or provide "
+            "it throught the `--stream-name` cli parameter."
+        )
+        super().__init__(self.message)
+
+    def __str__(self):
+        return f"{self.message}"
+
+
 class ModuleStream:
-
     def __init__(self, mmd, version):
-
         self.mmd = mmd
-
         self.name = mmd.get_module_name()
-        if not self.name:
-            # TODO name is taked from the repo name when building from a SCM. When building localy
-            # we need to find out if we will provide some automatic substitution or error out
-            raise Exception(("The module stream metadata file does not provide a name for the "
-                             "module! Please set the module name in the metadata file or provide "
-                             "it throught the `--module-name` cli parameter."))
         self.stream = mmd.get_stream_name()
+
+        if not self.name:
+            # TODO: name is taked from the repo name when building from a SCM. When building localy
+            # we need to find out if we will provide some automatic substitution or error out
+            raise ModuleStreamNameError()
+
         if not self.stream:
-            # TODO stream is taked from the branch name when building from a SCM. When building
+            # TODO: stream is taked from the branch name when building from a SCM. When building
             # localy we need to find out if we will provide some automatic substitution or error out
-            raise Exception(("The module stream metadata file does not provide a name for the "
-                             "stream! Please set the stream name in the metadata file or provide "
-                             "it throught the `--stream-name` cli parameter."))
+            raise ModuleStreamStreamError()
 
         self.version = version
         self.description = mmd.get_description()
-
         self.contexts = self.process_build_configurations(mmd)
-
         self.components = self.process_components(mmd)
         self.filtered_rpms = mmd.get_rpm_filters_as_strv()
 

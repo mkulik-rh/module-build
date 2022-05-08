@@ -3,13 +3,17 @@ import os
 import shutil
 import subprocess
 from collections import OrderedDict
+from pathlib import Path
 
 import mockbuild.config
-
 from module_build.log import logger
-from module_build.metadata import (generate_and_populate_output_mmd, mmd_to_str,
-                                   generate_module_stream_version)
+from module_build.metadata import (generate_and_populate_output_mmd,
+                                   generate_module_stream_version, mmd_to_str)
+from module_build.mockconfig import MockConfig
 from module_build.modulemd import Modulemd
+from packaging import version
+
+from .constants import SPEC_EXTENSION, SRPM_EXTENSIONS
 
 
 class MockBuilderState:
@@ -145,7 +149,6 @@ class MockBuilder:
 
                     # Searching for SRPM
                     if self.srpm_dir:
-                        self.parse_srpm_files()
                         srpm_dir = self.get_srpm_for_component(component["name"])
                     else:
                         srpm_dir = ""
@@ -254,15 +257,18 @@ class MockBuilder:
         return build_batches
 
     def create_build_contexts(self, module_stream):
-        """Method which creates metada which track the build process and state of a context of a
+        """Method which creates metadata which track the build process and state of a context of a
         module stream.
 
         :param module_stream: a module stream object
         :type module_stream: :class:`module_build.stream.ModuleBuild` object
         """
         mock_path, mock_filename = self.mock_cfg_path.rsplit("/", 1)
-        mock_cfg = mockbuild.config.load_config(mock_path, self.mock_cfg_path, None,
-                                                module_stream.version, mock_path)
+        # if version.parse(mockbuild.__version__) >= version.parse("3.0"):
+        mock_cfg = mockbuild.config.load_config(mock_path, self.mock_cfg_path, None)
+        # else:
+        #     mock_cfg = mockbuild.config.load_config(mock_path, self.mock_cfg_path, None,
+        # module_stream.version, mock_path)
 
         dist = None
         if "dist" in mock_cfg:

@@ -6,13 +6,14 @@ import traceback
 
 from module_build.builders.mock_builder import MockBuilder
 from module_build.log import init_logging, logger
-from module_build.metadata import (load_modulemd_file_from_path,
-                                   generate_module_stream_version)
+from module_build.metadata import (generate_module_stream_version,
+                                   load_modulemd_file_from_path)
 from module_build.stream import ModuleStream
 
 
 class FullPathAction(argparse.Action):
     """ A custom argparse action which converts all relative paths to absolute. """
+
     def __call__(self, parser, args, values, option_string=None):
         full_path = self._get_full_path(values)
         # `add_repo` should be an `append` action
@@ -111,7 +112,7 @@ def main():
     yaml_filename = args.modulemd.split("/")[-1].rsplit(".", 1)[0]
     init_logging(args.workdir, yaml_filename, logger, args.verbose)
 
-# PHASE1: Load metadata and configuration provided by the user
+    # PHASE1: Load metadata and configuration provided by the user
     logger.info("Processing provided module stream metadata...")
     if args.modulemd:
         mmd = load_modulemd_file_from_path(args.modulemd)
@@ -132,32 +133,27 @@ def main():
         version = args.module_version
 
     logger.info("Initializing the module build process...")
-    module_stream = ModuleStream(mmd, version)
 
-    # TODO move the whole validation in the argparse
+    try:
+        module_stream = ModuleStream(mmd, version)
+    except Exception as ex:
+        logger.exception(f"Error analyzing modulemd metadata: {ex}")
+
+    # TODO: move the whole validation in the argparse
     if not mmd:
         raise Exception("no input")
 
-# PHASE2: init the builder
-    if args.module_context:
-        log_msg = "Starting to build the '{name}:{stream}:{context}' of the module stream.".format(
-            name=module_stream.name,
-            stream=module_stream.stream,
-            context=args.module_context
-        )
-    else:
-        log_msg = "Starting to build the '{name}:{stream}' module stream.".format(
-            name=module_stream.name,
-            stream=module_stream.stream,
-        )
+    # PHASE2: init the builder
+    log_msg = f"{module_stream.name}:{module_stream.stream}"
+    log_msg = f"{log_msg}:{args.module_context} of the" if args.module_context else log_msg
 
-    logger.info(log_msg)
+    logger.info(f"Starting to build the {log_msg} module stream.")
 
     # TODO: add exceptions
     mock_builder = MockBuilder(args.mock_cfg, args.workdir,
                                args.add_repo, args.rootdir, args.srpm_dir)
 
-# PHASE3: try to build the module stream
+    # PHASE3: try to build the module stream
     try:
         mock_builder.build(module_stream, args.resume, context_to_build=args.module_context)
     except Exception:
